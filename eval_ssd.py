@@ -76,7 +76,7 @@ def compute_average_precision_per_class(num_true_cases, gt_boxes, difficult_case
         boxes = []
         scores = []
         for line in f:
-            t = line.rstrip().split(" ")
+            t = line.rstrip().split("\t")
             image_ids.append(t[0])
             scores.append(float(t[1]))
             box = torch.tensor([float(v) for v in t[2:]]).unsqueeze(0)
@@ -191,7 +191,7 @@ if __name__ == '__main__':
                 prob_box = sub[i, 2:].numpy()
                 image_id = dataset.ids[int(sub[i, 0])]
                 print(
-                    image_id + " " + " ".join([str(v) for v in prob_box]),
+                    image_id + "\t" + " ".join([str(v) for v in prob_box]).replace(" ", "\t"),
                     file=f
                 )
     aps = []
@@ -211,7 +211,7 @@ if __name__ == '__main__':
         aps.append(ap)
         print(f"{class_name}: {ap}")
 
-    print(f"\nAverage Precision Across All Classes:{sum(aps)/len(aps)}")
+    print(f"\nAverage Precision Across All Classes: {sum(aps)/len(aps)}")
 
 
 
