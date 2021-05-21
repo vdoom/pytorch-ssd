@@ -26,7 +26,8 @@ def parse_args():
     parser.add_argument("--num-workers", type=int, default=10, help="the number of worker threads used to download images.")
     parser.add_argument("--retry", type=int, default=10, help="retry times when downloading.")
     parser.add_argument('--remove-overlapped', action='store_true', help="Remove single boxes covered by group boxes.")
-    parser.add_argument('--max-images', type=int, default=-1, help='limit the total number of images downloaded.  The default is to use all available data.')
+    parser.add_argument('--max-images', type=int, default=-1, help='limit the total number of images downloaded across the whole dataset.  The default is to use all available data.')
+    parser.add_argument('--max-annotations-per-class', type=int, default=-1, help='limit the number of bounding-box annotations per class.  Each class will be able to have up to this many annotations.  The default is to use all annotations per class.')
     parser.add_argument('--stats-only', action='store_true', help='only list the number of images from the selected classes, and quit')
     
     return parser.parse_args()
@@ -79,6 +80,12 @@ def log_counts(values):
     for k, count in values.value_counts().iteritems():
         print("    {:s}:  {:d}/{:d} = {:.2f}".format(k, count, len(values), count/len(values)))
 
+
+def get_totals(dataset_types, images, annotations):
+    total_images = sum([len(images[d]) for d in dataset_types])
+    total_annotations = sum([len(annotations[d]) for d in dataset_types]) 
+    return total_images, total_annotations
+    
 
 if __name__ == '__main__':
     logging.basicConfig(stream=sys.stdout, level=logging.WARNING,
@@ -155,13 +162,12 @@ if __name__ == '__main__':
         logging.warning(f"Available {dataset_type} boxes:   {len(annotations[dataset_type])}\n")
         
     # get the total number of images / annotations    
-    total_images = sum([len(images[d]) for d in dataset_types])
-    total_annotations = sum([len(annotations[d]) for d in dataset_types]) 
+    total_images, total_annotations = get_totals(dataset_types, images, annotations)
     
     logging.warning(f"Total available images: {total_images}")
     logging.warning(f"Total available boxes:  {total_annotations}\n")
 
-    # limit the number of images (if needed)
+    # limit the total number of images (if needed)
     if args.max_images > 0 and total_images > args.max_images:
         for d in dataset_types:
             max_images = int(args.max_images * (len(images[d]) / total_images))
@@ -169,9 +175,34 @@ if __name__ == '__main__':
             annotations[d] = annotations[d].loc[annotations[d]['ImageID'].isin(images[d]), :]
             logging.warning(f"Limiting {d} dataset to:  {len(images[d])} images ({len(annotations[d])} boxes)")
 
-        total_images = sum([len(images[d]) for d in dataset_types])
-        total_annotations = sum([len(annotations[d]) for d in dataset_types]) 
+        total_images, total_annotations = get_totals(dataset_types, images, annotations)
 
+    # limit the number of annotations per class
+    if args.max_annotations_per_class > 0:
+        for d in dataset_types:
+            limited_images = []
+            limited_annotations = []
+            
+            for class_name in class_names:
+                class_annotations = annotations[d][(annotations[d]['ClassName'] == class_name)]
+                class_images = class_annotations['ImageID'].unique()
+
+                if len(class_annotations) > args.max_annotations_per_class:
+                    class_annotations = class_annotations.sample(n=args.max_annotations_per_class)
+                    class_images = class_annotations['ImageID'].unique()
+                    logging.warning(f"Limiting '{class_name}' in {d} dataset to:  {len(class_annotations)} boxes ({len(class_images)} images)")
+
+                limited_images.append(class_images)
+                limited_annotations.append(class_annotations)
+                
+            images[d] = np.concatenate(limited_images)
+            annotations[d] = pd.concat(limited_annotations)
+            
+        total_images, total_annotations = get_totals(dataset_types, images, annotations)
+        
+        logging.warning(f"Total images after limiting annotations per-class: {total_images}")
+        logging.warning(f"Total boxes after limiting annotations per-class:  {total_annotations}\n")
+    
     # print out class statistics
     for dataset_type in dataset_types:
         print("\n-------------------------------------\n '{:s}' set statistics\n-------------------------------------".format(dataset_type))
