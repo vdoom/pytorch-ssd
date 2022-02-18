@@ -30,7 +30,7 @@ class VOCDataset:
             if os.path.isfile(image_sets_default):
                 image_sets_file = image_sets_default
             else:
-                raise IOError("missing ImageSet file {:s}".format(image_sets_file))
+                raise IOError("missing ImageSet file {:s}".format(str(image_sets_file)))
 
         # read the image set ID's
         self.ids = self._read_image_ids(image_sets_file)
@@ -105,7 +105,7 @@ class VOCDataset:
                 image_id = line.rstrip()
                 
                 if len(image_id) <= 0:
-                    print('warning - found empty line in {:s}, skipping line'.format(image_sets_file))
+                    print('warning - found empty line in {:s}, skipping line'.format(str(image_sets_file)))
                     continue
                     
                 if self._get_num_annotations(image_id) > 0:
