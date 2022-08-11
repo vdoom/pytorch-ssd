@@ -39,6 +39,8 @@ parser.add_argument('--balance-data', action='store_true',
 # Params for network
 parser.add_argument('--net', default="mb1-ssd",
                     help="The network architecture, it can be mb1-ssd, mb1-lite-ssd, mb2-ssd-lite or vgg16-ssd.")
+parser.add_argument('--resolution', type=int, default=300,
+                    help="the NxN pixel resolution of the model (can be changed for mb1-ssd only)")
 parser.add_argument('--freeze-base-net', action='store_true',
                     help="Freeze base net layers.")
 parser.add_argument('--freeze-net', action='store_true',
@@ -184,6 +186,7 @@ if __name__ == '__main__':
     elif args.net == 'mb1-ssd':
         create_net = create_mobilenetv1_ssd
         config = mobilenetv1_ssd_config
+        config.set_image_size(args.resolution)
     elif args.net == 'mb1-ssd-lite':
         create_net = create_mobilenetv1_ssd_lite
         config = mobilenetv1_ssd_config
