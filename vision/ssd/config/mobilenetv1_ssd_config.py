@@ -58,7 +58,7 @@ def set_image_size(size=300, min_ratio=20, max_ratio=90):
         for i in range(len(feature_maps)):
             specs.append( SSDSpec(feature_maps[i], steps[i], SSDBoxSizes(min_sizes[i], max_sizes[i]), [2, 3]) )   # ssd-mobilenet-* aspect ratio is [2,3]
 
-    logging.info(f'model resolution {image_size} x {image_size}')
+    logging.info(f'model resolution {image_size}x{image_size}')
     for spec in specs:
         logging.info(str(spec))
     
