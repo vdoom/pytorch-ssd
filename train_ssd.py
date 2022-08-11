@@ -406,15 +406,15 @@ if __name__ == '__main__':
                 f"Validation Classification Loss: {val_classification_loss:.4f}"
             )
                     
-            tensorboard.add_scalar('Loss/validation', val_loss, epoch)
-            tensorboard.add_scalar('Regression Loss/validation', val_regression_loss, epoch)
-            tensorboard.add_scalar('Classification Loss/validation', val_classification_loss, epoch)
+            tensorboard.add_scalar('Loss/val', val_loss, epoch)
+            tensorboard.add_scalar('Regression Loss/val', val_regression_loss, epoch)
+            tensorboard.add_scalar('Classification Loss/val', val_classification_loss, epoch)
     
             if not args.quick_validation:
                 mean_ap, class_ap = eval.compute()
                 eval.log_results(mean_ap, class_ap, f"Epoch: {epoch}, ")
                         
-                tensorboard.add_scalar('Mean Average Precision/validation', mean_ap, epoch)
+                tensorboard.add_scalar('Mean Average Precision/val', mean_ap, epoch)
                 
                 for i in range(len(class_ap)):
                     tensorboard.add_scalar(f"Class Average Precision/{eval_dataset.class_names[i+1]}", class_ap[i], epoch)
