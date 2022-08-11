@@ -99,10 +99,8 @@ class MeanAPEvaluator:
     def log_results(self, mean_ap, class_ap, prefix=''):
         logging.info(f"{prefix}Average Precision Per-class:")
         
-        for class_index, class_name in enumerate(self.dataset.class_names):
-            if class_index == 0:
-                continue
-            logging.info(f"    {class_name}: {class_ap[class_index-1]}")
+        for i in range(len(class_ap)):
+            logging.info(f"    {self.dataset.class_names[i+1]}: {class_ap[i]}")
             
         logging.info(f"{prefix}Mean Average Precision (mAP):  {mean_ap}")
         
