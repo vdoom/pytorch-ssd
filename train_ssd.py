@@ -26,6 +26,8 @@ from vision.ssd.config import mobilenetv1_ssd_config
 from vision.ssd.config import squeezenet_ssd_config
 from vision.ssd.data_preprocessing import TrainAugmentation, TestTransform
 
+from eval_ssd import MeanAPEvaluator
+
 parser = argparse.ArgumentParser(
     description='Single Shot MultiBox Detector Training With PyTorch')
 
@@ -51,8 +53,7 @@ parser.add_argument('--mb2-width-mult', default=1.0, type=float,
 # Params for loading pretrained basenet or checkpoints.
 parser.add_argument('--base-net', help='Pretrained base model')
 parser.add_argument('--pretrained-ssd', default='models/mobilenet-v1-ssd-mp-0_675.pth', type=str, help='Pre-trained base model')
-parser.add_argument('--resume', default=None, type=str,
-                    help='Checkpoint state_dict file to resume training from')
+parser.add_argument('--resume', default=None, type=str, help='Checkpoint state_dict file to resume training from')
 
 # Params for SGD
 parser.add_argument('--lr', '--learning-rate', default=0.01, type=float,
@@ -89,6 +90,8 @@ parser.add_argument('--num-workers', '--workers', default=2, type=int,
                     help='Number of workers used in dataloading')
 parser.add_argument('--validation-epochs', default=1, type=int,
                     help='the number epochs between running validation')
+parser.add_argument('--quick-validation', default=False, type=str2bool,
+                    help='Skip computation of Mean Average Precision (mAP) during validation')
 parser.add_argument('--debug-steps', default=10, type=int,
                     help='Set the debug log output frequency.')
 parser.add_argument('--use-cuda', default=True, type=str2bool,
@@ -254,13 +257,21 @@ if __name__ == '__main__':
     val_loader = DataLoader(val_dataset, args.batch_size,
                             num_workers=args.num_workers,
                             shuffle=False)
-                            
+                      
     # create the network
     logging.info("Build network.")
     net = create_net(num_classes)
     min_loss = -10000.0
     last_epoch = -1
 
+    # prepare eval dataset (for mAP computation)
+    if not args.quick_validation:
+        if args.dataset_type == "voc":
+            eval_dataset = VOCDataset(dataset_path, is_test=True)
+        elif args.dataset_type == 'open_images':
+            eval_dataset = OpenImagesDataset(dataset_path, dataset_type="test")
+        eval = MeanAPEvaluator(eval_dataset, net, arch=args.net, eval_dir=os.path.join(args.checkpoint_folder, 'eval_results'))
+        
     # freeze certain layers (if requested)
     base_net_lr = args.base_net_lr if args.base_net_lr is not None else args.lr
     extra_layers_lr = args.extra_layers_lr if args.extra_layers_lr is not None else args.lr
@@ -353,6 +364,9 @@ if __name__ == '__main__':
                 f"Validation Regression Loss {val_regression_loss:.4f}, " +
                 f"Validation Classification Loss: {val_classification_loss:.4f}"
             )
+            if not args.quick_validation:
+                mean_ap, class_ap = eval.compute()
+                eval.log_results(mean_ap, class_ap, f"Epoch: {epoch}, ")
             model_path = os.path.join(args.checkpoint_folder, f"{args.net}-Epoch-{epoch}-Loss-{val_loss}.pth")
             net.save(model_path)
             logging.info(f"Saved model {model_path}")
