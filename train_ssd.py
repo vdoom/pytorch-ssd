@@ -98,11 +98,14 @@ parser.add_argument('--use-cuda', default=True, type=str2bool,
                     help='Use CUDA to train model')
 parser.add_argument('--checkpoint-folder', '--model-dir', default='models/',
                     help='Directory for saving checkpoint models')
+parser.add_argument('--log-level', default='info', type=str,
+                    help='Logging level, one of:  debug, info, warning, error, critical (default: info)')
+                                        
+args = parser.parse_args()
 
-logging.basicConfig(stream=sys.stdout, level=logging.INFO,
+logging.basicConfig(stream=sys.stdout, level=getattr(logging, args.log_level.upper(), logging.INFO),
                     format='%(asctime)s - %(message)s', datefmt="%Y-%m-%d %H:%M:%S")
                     
-args = parser.parse_args()
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() and args.use_cuda else "cpu")
 
 if args.use_cuda and torch.cuda.is_available():
