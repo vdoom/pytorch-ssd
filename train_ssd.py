@@ -5,10 +5,12 @@ import os
 import sys
 import logging
 import argparse
+import datetime
 import itertools
 import torch
 
 from torch.utils.data import DataLoader, ConcatDataset
+from torch.utils.tensorboard import SummaryWriter
 from torch.optim.lr_scheduler import CosineAnnealingLR, MultiStepLR
 
 from vision.utils.misc import str2bool, Timer, freeze_net_layers, store_labels
@@ -106,6 +108,8 @@ args = parser.parse_args()
 logging.basicConfig(stream=sys.stdout, level=getattr(logging, args.log_level.upper(), logging.INFO),
                     format='%(asctime)s - %(message)s', datefmt="%Y-%m-%d %H:%M:%S")
                     
+tensorboard = SummaryWriter(log_dir=os.path.join(args.checkpoint_folder, "tensorboard", f"{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"))
+
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() and args.use_cuda else "cpu")
 
 if args.use_cuda and torch.cuda.is_available():
@@ -115,9 +119,17 @@ if args.use_cuda and torch.cuda.is_available():
 
 def train(loader, net, criterion, optimizer, device, debug_steps=100, epoch=-1):
     net.train(True)
+    
+    train_loss = 0.0
+    train_regression_loss = 0.0
+    train_classification_loss = 0.0
+    
     running_loss = 0.0
     running_regression_loss = 0.0
     running_classification_loss = 0.0
+    
+    num_batches = 0
+    
     for i, data in enumerate(loader):
         images, boxes, labels = data
         images = images.to(device)
@@ -126,14 +138,19 @@ def train(loader, net, criterion, optimizer, device, debug_steps=100, epoch=-1):
 
         optimizer.zero_grad()
         confidence, locations = net(images)
-        regression_loss, classification_loss = criterion(confidence, locations, labels, boxes)  # TODO CHANGE BOXES
+        regression_loss, classification_loss = criterion(confidence, locations, labels, boxes)
         loss = regression_loss + classification_loss
         loss.backward()
         optimizer.step()
 
+        train_loss += loss.item()
+        train_regression_loss += regression_loss.item()
+        train_classification_loss += classification_loss.item()
+        
         running_loss += loss.item()
         running_regression_loss += regression_loss.item()
         running_classification_loss += classification_loss.item()
+
         if i and i % debug_steps == 0:
             avg_loss = running_loss / debug_steps
             avg_reg_loss = running_regression_loss / debug_steps
@@ -148,6 +165,22 @@ def train(loader, net, criterion, optimizer, device, debug_steps=100, epoch=-1):
             running_regression_loss = 0.0
             running_classification_loss = 0.0
 
+        num_batches += 1
+        
+    train_loss /= num_batches
+    train_regression_loss /= num_batches
+    train_classification_loss /= num_batches
+    
+    logging.info(
+        f"Epoch: {epoch}, " +
+        f"Training Loss: {train_loss:.4f}, " +
+        f"Training Regression Loss {train_regression_loss:.4f}, " +
+        f"Training Classification Loss: {train_classification_loss:.4f}"
+    )
+     
+    tensorboard.add_scalar('Loss/train', train_loss, epoch)
+    tensorboard.add_scalar('Regression Loss/train', train_regression_loss, epoch)
+    tensorboard.add_scalar('Classification Loss/train', train_classification_loss, epoch)
 
 def test(loader, net, criterion, device):
     net.eval()
@@ -170,6 +203,7 @@ def test(loader, net, criterion, device):
         running_loss += loss.item()
         running_regression_loss += regression_loss.item()
         running_classification_loss += classification_loss.item()
+    
     return running_loss / num, running_regression_loss / num, running_classification_loss / num
 
 
@@ -315,6 +349,7 @@ if __name__ == '__main__':
 
     # load a previous model checkpoint (if requested)
     timer.start("Load Model")
+    
     if args.resume:
         logging.info(f"Resume from the model {args.resume}")
         net.load(args.resume)
@@ -324,6 +359,7 @@ if __name__ == '__main__':
     elif args.pretrained_ssd:
         logging.info(f"Init from pretrained ssd {args.pretrained_ssd}")
         net.init_from_pretrained_ssd(args.pretrained_ssd)
+        
     logging.info(f'Took {timer.end("Load Model"):.2f} seconds to load the model.')
 
     # move the model to GPU
@@ -332,8 +368,10 @@ if __name__ == '__main__':
     # define loss function and optimizer
     criterion = MultiboxLoss(config.priors, iou_threshold=0.5, neg_pos_ratio=3,
                              center_variance=0.1, size_variance=0.2, device=DEVICE)
+                             
     optimizer = torch.optim.SGD(params, lr=args.lr, momentum=args.momentum,
                                 weight_decay=args.weight_decay)
+                                
     logging.info(f"Learning rate: {args.lr}, Base net learning rate: {base_net_lr}, "
                  + f"Extra Layers learning rate: {extra_layers_lr}.")
 
@@ -355,23 +393,35 @@ if __name__ == '__main__':
     logging.info(f"Start training from epoch {last_epoch + 1}.")
     
     for epoch in range(last_epoch + 1, args.num_epochs):
-        train(train_loader, net, criterion, optimizer,
-              device=DEVICE, debug_steps=args.debug_steps, epoch=epoch)
+        train(train_loader, net, criterion, optimizer, device=DEVICE, debug_steps=args.debug_steps, epoch=epoch)
         scheduler.step()
         
         if epoch % args.validation_epochs == 0 or epoch == args.num_epochs - 1:
             val_loss, val_regression_loss, val_classification_loss = test(val_loader, net, criterion, DEVICE)
+            
             logging.info(
                 f"Epoch: {epoch}, " +
                 f"Validation Loss: {val_loss:.4f}, " +
                 f"Validation Regression Loss {val_regression_loss:.4f}, " +
                 f"Validation Classification Loss: {val_classification_loss:.4f}"
             )
+                    
+            tensorboard.add_scalar('Loss/validation', val_loss, epoch)
+            tensorboard.add_scalar('Regression Loss/validation', val_regression_loss, epoch)
+            tensorboard.add_scalar('Classification Loss/validation', val_classification_loss, epoch)
+    
             if not args.quick_validation:
                 mean_ap, class_ap = eval.compute()
                 eval.log_results(mean_ap, class_ap, f"Epoch: {epoch}, ")
+                        
+                tensorboard.add_scalar('Mean Average Precision/validation', mean_ap, epoch)
+                
+                for i in range(len(class_ap)):
+                    tensorboard.add_scalar(f"Class Average Precision/{eval_dataset.class_names[i+1]}", class_ap[i], epoch)
+    
             model_path = os.path.join(args.checkpoint_folder, f"{args.net}-Epoch-{epoch}-Loss-{val_loss}.pth")
             net.save(model_path)
             logging.info(f"Saved model {model_path}")
 
     logging.info("Task done, exiting program.")
+    tensorboard.close()
