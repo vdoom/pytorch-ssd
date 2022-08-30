@@ -92,8 +92,8 @@ parser.add_argument('--num-workers', '--workers', default=2, type=int,
                     help='Number of workers used in dataloading')
 parser.add_argument('--validation-epochs', default=1, type=int,
                     help='the number epochs between running validation')
-parser.add_argument('--quick-validation', default=False, type=str2bool,
-                    help='Skip computation of Mean Average Precision (mAP) during validation')
+parser.add_argument('--validation-mean-ap', default=False, type=str2bool,
+                    help='Perform computation of Mean Average Precision (mAP) during validation')
 parser.add_argument('--debug-steps', default=10, type=int,
                     help='Set the debug log output frequency.')
 parser.add_argument('--use-cuda', default=True, type=str2bool,
@@ -302,7 +302,7 @@ if __name__ == '__main__':
     last_epoch = -1
 
     # prepare eval dataset (for mAP computation)
-    if not args.quick_validation:
+    if args.validation_mean_ap:
         if args.dataset_type == "voc":
             eval_dataset = VOCDataset(dataset_path, is_test=True)
         elif args.dataset_type == 'open_images':
@@ -410,7 +410,7 @@ if __name__ == '__main__':
             tensorboard.add_scalar('Regression Loss/val', val_regression_loss, epoch)
             tensorboard.add_scalar('Classification Loss/val', val_classification_loss, epoch)
     
-            if not args.quick_validation:
+            if args.validation_mean_ap:
                 mean_ap, class_ap = eval.compute()
                 eval.log_results(mean_ap, class_ap, f"Epoch: {epoch}, ")
                         
