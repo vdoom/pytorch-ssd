@@ -1,6 +1,5 @@
-#
+#!/usr/bin/env python3
 # converts a saved PyTorch model to ONNX format
-# 
 import os
 import sys
 import argparse
@@ -16,7 +15,7 @@ from vision.ssd.mobilenet_v2_ssd_lite import create_mobilenetv2_ssd_lite
 
 # parse command line
 parser = argparse.ArgumentParser()
-parser.add_argument('--net', default="ssd-mobilenet", help="The network architecture, it can be mb1-ssd (aka ssd-mobilenet), mb1-lite-ssd, mb2-ssd-lite or vgg16-ssd.")
+parser.add_argument('--net', default="ssd-mobilenet", help="The network architecture, it can be mb1-ssd (aka ssd-mobilenet), mb1-ssd-lite, mb2-ssd-lite or vgg16-ssd.")
 parser.add_argument('--input', type=str, default='', help="path to input PyTorch model (.pth checkpoint)")
 parser.add_argument('--output', type=str, default='', help="desired path of converted ONNX model (default: <NET>.onnx)")
 parser.add_argument('--labels', type=str, default='labels.txt', help="name of the class labels file")
@@ -30,7 +29,7 @@ print(args)
 
 # set the device
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-print('running on device ' + str(device))
+print(f"=> running on device {device}")
 
 # format input model paths
 if args.model_dir:
@@ -39,17 +38,22 @@ if args.model_dir:
     # find the checkpoint with the lowest loss
     if not args.input:
         best_loss = 10000
-        for file in os.listdir(args.model_dir):
+        for index, file in enumerate(os.listdir(args.model_dir)):
             if not file.endswith(".pth"):
                 continue
             try:
-               loss = float(file[file.rfind("-")+1:len(file)-4])
-               if loss < best_loss:
-                   best_loss = loss
-                   args.input = os.path.join(args.model_dir, file)
+                loss = float(file[file.rfind("-")+1:len(file)-4])
+                if loss < best_loss:
+                    best_loss = loss
+                    args.input = os.path.join(args.model_dir, file)
             except ValueError:
-               continue            
-        print('found best checkpoint with loss {:f} ({:s})'.format(best_loss, args.input))
+                args.input = os.path.join(args.model_dir, file)
+                continue    
+
+        if not args.input:
+            raise IOError(f"couldn't find valid .pth checkpoint under '{args.model_dir}'")
+            
+        print(f"=> found best checkpoint with loss {best_loss} ({args.input})")
         
     # append the model dir (if needed)
     if not os.path.isfile(args.input):
@@ -63,8 +67,8 @@ class_names = [name.strip() for name in open(args.labels).readlines()]
 num_classes = len(class_names)
 
 # construct the network architecture
-print('creating network:  ' + args.net)
-print('num classes:       ' + str(num_classes))
+print(f"creating network:  {args.net}")
+print(f"num classes:       {num_classes}")
 
 if args.net == 'vgg16-ssd':
     net = create_vgg_ssd(len(class_names), is_test=True)
@@ -81,7 +85,7 @@ else:
     sys.exit(1)
     
 # load the model checkpoint
-print('loading checkpoint:  ' + args.input)
+print(f"=> loading checkpoint:  {args.input}")
 
 net.load(args.input)
 net.to(device)
@@ -101,7 +105,6 @@ if args.model_dir and args.output.find('/') == -1 and args.output.find('\\') == 
 input_names = ['input_0']
 output_names = ['scores', 'boxes']
 
-print('exporting model to ONNX...')
+print("=> exporting model to ONNX...")
 torch.onnx.export(net, dummy_input, args.output, verbose=True, input_names=input_names, output_names=output_names)
-print('model exported to:  {:s}'.format(args.output))
-print('task done, exiting program')
+print(f"model exported to:  {args.output}")

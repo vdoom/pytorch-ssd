@@ -1,5 +1,7 @@
+#!/usr/bin/env python3
 #
 # train an SSD model on Pascal VOC or Open Images datasets
+# https://github.com/dusty-nv/jetson-inference/blob/master/docs/pytorch-ssd.md
 #
 import os
 import sys
@@ -13,7 +15,7 @@ from torch.utils.data import DataLoader, ConcatDataset
 from torch.utils.tensorboard import SummaryWriter
 from torch.optim.lr_scheduler import CosineAnnealingLR, MultiStepLR
 
-from vision.utils.misc import str2bool, Timer, freeze_net_layers, store_labels
+from vision.utils.misc import Timer, freeze_net_layers, store_labels
 from vision.ssd.ssd import MatchPrior
 from vision.ssd.vgg_ssd import create_vgg_ssd
 from vision.ssd.mobilenetv1_ssd import create_mobilenetv1_ssd
@@ -30,6 +32,7 @@ from vision.ssd.data_preprocessing import TrainAugmentation, TestTransform
 
 from eval_ssd import MeanAPEvaluator
 
+
 parser = argparse.ArgumentParser(
     description='Single Shot MultiBox Detector Training With PyTorch')
 
@@ -42,7 +45,7 @@ parser.add_argument('--balance-data', action='store_true',
 
 # Params for network
 parser.add_argument('--net', default="mb1-ssd",
-                    help="The network architecture, it can be mb1-ssd, mb1-lite-ssd, mb2-ssd-lite or vgg16-ssd.")
+                    help="The network architecture, it can be mb1-ssd, mb1-ssd-lite, mb2-ssd-lite or vgg16-ssd.")
 parser.add_argument('--resolution', type=int, default=300,
                     help="the NxN pixel resolution of the model (can be changed for mb1-ssd only)")
 parser.add_argument('--freeze-base-net', action='store_true',
@@ -92,11 +95,11 @@ parser.add_argument('--num-workers', '--workers', default=2, type=int,
                     help='Number of workers used in dataloading')
 parser.add_argument('--validation-epochs', default=1, type=int,
                     help='the number epochs between running validation')
-parser.add_argument('--validation-mean-ap', default=False, type=str2bool,
+parser.add_argument('--validation-mean-ap', action='store_true',
                     help='Perform computation of Mean Average Precision (mAP) during validation')
 parser.add_argument('--debug-steps', default=10, type=int,
                     help='Set the debug log output frequency.')
-parser.add_argument('--use-cuda', default=True, type=str2bool,
+parser.add_argument('--use-cuda', default=True, action='store_true',
                     help='Use CUDA to train model')
 parser.add_argument('--checkpoint-folder', '--model-dir', default='models/',
                     help='Directory for saving checkpoint models')

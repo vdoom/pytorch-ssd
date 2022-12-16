@@ -1,43 +1,54 @@
-import numpy as np
-import logging
-import pathlib
-import xml.etree.ElementTree as ET
-import cv2
+#!/usr/bin/env python3
 import os
+import logging
+
+import torch
+import numpy as np
+import xml.etree.ElementTree as ET
+
+from PIL import Image
 
 
-class VOCDataset:
-
+class VOCDataset(torch.utils.data.Dataset):
+    """
+    Object detection dataset for Pascal VOC (http://host.robots.ox.ac.uk/pascal/VOC/)
+    """
     def __init__(self, root, transform=None, target_transform=None, is_test=False, keep_difficult=False, label_file=None):
-        """Dataset for VOC data.
-        Args:
-            root: the root of the VOC2007 or VOC2012 dataset, the directory contains the following sub-directories:
-                Annotations, ImageSets, JPEGImages, SegmentationClass, SegmentationObject.
         """
-        self.root = pathlib.Path(root)
+        Dataset for VOC data.
+        
+        Parameters:
+            root (string) -- path to the VOC2007 or VOC2012 dataset, containing the following sub-directories:
+                             Annotations, ImageSets, JPEGImages, SegmentationClass, SegmentationObject
+                             
+            is_test (bool) -- if true, then use the data subset from `ImageSets/Main/test.txt`
+                              if false, then use the data subset from `ImageSets/Main/trainval.txt`
+                              if these files don't exist, then `ImageSets/Main/default.txt` will be used
+        """
+        self.root = root
         self.transform = transform
         self.target_transform = target_transform
 
         # determine the image set file to use
         if is_test:
-            image_sets_file = self.root / "ImageSets/Main/test.txt"
+            image_sets_file = os.path.join(self.root, 'ImageSets/Main/test.txt')
         else:
-            image_sets_file = self.root / "ImageSets/Main/trainval.txt"
+            image_sets_file = os.path.join(self.root, 'ImageSets/Main/trainval.txt')
             
         if not os.path.isfile(image_sets_file):
-            image_sets_default = self.root / "ImageSets/Main/default.txt"   # CVAT only saves default.txt
+            image_sets_default = os.path.join(self.root, 'ImageSets/Main/default.txt')   # CVAT only saves default.txt
 
             if os.path.isfile(image_sets_default):
                 image_sets_file = image_sets_default
             else:
-                raise IOError("missing ImageSet file {:s}".format(str(image_sets_file)))
+                raise IOError(f"missing ImageSet file {image_sets_file}")
 
         # read the image set ID's
         self.ids = self._read_image_ids(image_sets_file)
         self.keep_difficult = keep_difficult
 
         # if the labels file exists, read in the class names
-        label_file_name = self.root / "labels.txt"
+        label_file_name = os.path.join(self.root, 'labels.txt')
 
         if os.path.isfile(label_file_name):
             classes = []
@@ -51,17 +62,17 @@ class VOCDataset:
             classes.insert(0, 'BACKGROUND')
             #classes  = [ elem.replace(" ", "") for elem in classes]
             self.class_names = tuple(classes)
-            logging.info("VOC Labels read from file: " + str(self.class_names))
+            logging.info(f"VOC Labels read from file:  {self.class_names}")
 
         else:
             logging.info("No labels file, using default VOC classes.")
+            
             self.class_names = ('BACKGROUND',
             'aeroplane', 'bicycle', 'bird', 'boat',
             'bottle', 'bus', 'car', 'cat', 'chair',
             'cow', 'diningtable', 'dog', 'horse',
             'motorbike', 'person', 'pottedplant',
             'sheep', 'sofa', 'train', 'tvmonitor')
-
 
         self.class_dict = {class_name: i for i, class_name in enumerate(self.class_names)}
 
@@ -120,12 +131,12 @@ class VOCDataset:
         return ids
 
     def _get_num_annotations(self, image_id):
-        annotation_file = self.root / f"Annotations/{image_id}.xml"
+        annotation_file = os.path.join(self.root, f'Annotations/{image_id}.xml')
         objects = ET.parse(annotation_file).findall("object")
         return len(objects)
         
     def _get_annotation(self, image_id):
-        annotation_file = self.root / f"Annotations/{image_id}.xml"
+        annotation_file = os.path.join(self.root, f'Annotations/{image_id}.xml')
         objects = ET.parse(annotation_file).findall("object")
         boxes = []
         labels = []
@@ -154,7 +165,7 @@ class VOCDataset:
 
                 is_difficult.append(int(is_difficult_str) if is_difficult_str else 0)
             else:
-                print("warning - image {:s} has object with unknown class '{:s}'".format(image_id, class_name))
+                print(f"warning - image {image_id} has object with unknown class '{class_name}'")
 
         return (np.array(boxes, dtype=np.float32),
                 np.array(labels, dtype=np.int64),
@@ -164,7 +175,7 @@ class VOCDataset:
         img_extensions = ('.jpg', '.JPG', '.jpeg', '.JPEG', '.png', '.PNG', '.bmp', '.BMP', '.tif', '.TIF', '.tiff', '.TIFF')
         
         for ext in img_extensions:
-            image_file = os.path.join(self.root, "JPEGImages/{:s}{:s}".format(image_id, ext))
+            image_file = os.path.join(self.root, f'JPEGImages/{image_id}{ext}')
             
             if os.path.exists(image_file):
                 return image_file
@@ -175,15 +186,14 @@ class VOCDataset:
         image_file = self._find_image(image_id)
         
         if image_file is None:
-            raise IOError('failed to load ' + image_file)
+            raise IOError(f"failed to find {image_file}")
             
-        image = cv2.imread(str(image_file))
+        image = Image.open(image_file).convert('RGB')
         
         if image is None or image.size == 0:
-            raise IOError('failed to load ' + str(image_file))
-            
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        return image
+            raise IOError(f"invalid/corrupt image {image_file}")
+
+        return np.asarray(image)
 
 
 
