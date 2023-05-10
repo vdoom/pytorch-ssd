@@ -6,4 +6,4 @@ For documentation, please refer to the following:
 * [Re-training SSD-Mobilenet](https://github.com/dusty-nv/jetson-inference/blob/dev/docs/pytorch-ssd.md) from the **[Hello AI World](https://github.com/dusty-nv/jetson-inference/tree/dev#training)** tutorial <br/>
 * [Original Readme](https://github.com/qfgaohao/pytorch-ssd) from [`https://github.com/qfgaohao/pytorch-ssd`](https://github.com/qfgaohao/pytorch-ssd)
 
-> Thanks to @qfgaohao for the [upstream implementation](https://github.com/qfgaohao/pytorch-ssd)!
+> Thanks to @qfgaohao for the [upstream implementation](https://github.com/qfgaohao/pytorch-ssd)
