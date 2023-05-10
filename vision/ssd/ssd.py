@@ -1,19 +1,24 @@
-import torch.nn as nn
+
 import torch
-import numpy as np
-from typing import List, Tuple
+import torch.nn as nn
 import torch.nn.functional as F
 
-from ..utils import box_utils
+import numpy as np
+
+from typing import List, Tuple
 from collections import namedtuple
-GraphPath = namedtuple("GraphPath", ['s0', 'name', 's1'])  #
+
+from ..utils import box_utils
+
+GraphPath = namedtuple("GraphPath", ['s0', 'name', 's1'])
 
 
 class SSD(nn.Module):
     def __init__(self, num_classes: int, base_net: nn.ModuleList, source_layer_indexes: List[int],
                  extras: nn.ModuleList, classification_headers: nn.ModuleList,
                  regression_headers: nn.ModuleList, is_test=False, config=None, device=None):
-        """Compose a SSD model using the given components.
+        """
+        Compose a SSD model using the given components.
         """
         super(SSD, self).__init__()
 
