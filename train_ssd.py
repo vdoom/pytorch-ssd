@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# train an SSD model on Pascal VOC or Open Images datasets
+# train an SSD detection model on Pascal VOC or Open Images datasets
 # https://github.com/dusty-nv/jetson-inference/blob/master/docs/pytorch-ssd.md
 #
 import os
@@ -33,6 +33,9 @@ from vision.ssd.data_preprocessing import TrainAugmentation, TestTransform
 from eval_ssd import MeanAPEvaluator
 
 
+DEFAULT_PRETRAINED_MODEL='models/mobilenet-v1-ssd-mp-0_675.pth'
+
+
 parser = argparse.ArgumentParser(
     description='Single Shot MultiBox Detector Training With PyTorch')
 
@@ -57,7 +60,7 @@ parser.add_argument('--mb2-width-mult', default=1.0, type=float,
 
 # Params for loading pretrained basenet or checkpoints.
 parser.add_argument('--base-net', help='Pretrained base model')
-parser.add_argument('--pretrained-ssd', default='models/mobilenet-v1-ssd-mp-0_675.pth', type=str, help='Pre-trained base model')
+parser.add_argument('--pretrained-ssd', default=DEFAULT_PRETRAINED_MODEL, type=str, help='Pre-trained base model')
 parser.add_argument('--resume', default=None, type=str, help='Checkpoint state_dict file to resume training from')
 
 # Params for SGD
@@ -354,13 +357,17 @@ if __name__ == '__main__':
     timer.start("Load Model")
     
     if args.resume:
-        logging.info(f"Resume from the model {args.resume}")
+        logging.info(f"Resuming from the model {args.resume}")
         net.load(args.resume)
     elif args.base_net:
         logging.info(f"Init from base net {args.base_net}")
         net.init_from_base_net(args.base_net)
     elif args.pretrained_ssd:
-        logging.info(f"Init from pretrained ssd {args.pretrained_ssd}")
+        logging.info(f"Init from pretrained SSD {args.pretrained_ssd}")
+        
+        if not os.path.exists(args.pretrained_ssd) and args.pretrained_ssd == DEFAULT_PRETRAINED_MODEL:
+            os.system(f"wget --quiet --show-progress --progress=bar:force:noscroll --no-check-certificate https://nvidia.box.com/shared/static/djf5w54rjvpqocsiztzaandq1m3avr7c.pth -O {DEFAULT_PRETRAINED_MODEL}")
+
         net.init_from_pretrained_ssd(args.pretrained_ssd)
         
     logging.info(f'Took {timer.end("Load Model"):.2f} seconds to load the model.')
