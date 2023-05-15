@@ -1,18 +1,25 @@
+#!/usr/bin/env python3
+import os
+import sys
 import time
 import boto3
-from botocore import UNSIGNED
-from botocore.config import Config
 import botocore
 import logging
-from multiprocessing import Pool, Manager
+import argparse
+import functools
+import packaging
+
 import pandas as pd
 import numpy as np
-import os
-import argparse
-import sys
-import functools
+
 from urllib import request
 from random import sample 
+
+from botocore import UNSIGNED
+from botocore.config import Config
+
+from multiprocessing import Pool, Manager
+
 
 s3 = boto3.client('s3', config=Config(signature_version=UNSIGNED))
 
@@ -77,7 +84,7 @@ def http_download(url, path):
 
 
 def log_counts(values):
-    for k, count in values.value_counts().iteritems():
+    for k, count in values.value_counts().items():
         print("    {:s}:  {:d}/{:d} = {:.2f}".format(k, count, len(values), count/len(values)))
 
 
