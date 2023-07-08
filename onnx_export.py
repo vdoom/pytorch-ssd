@@ -12,6 +12,8 @@ from vision.ssd.mobilenetv1_ssd_lite import create_mobilenetv1_ssd_lite
 from vision.ssd.squeezenet_ssd_lite import create_squeezenet_ssd_lite
 from vision.ssd.mobilenet_v2_ssd_lite import create_mobilenetv2_ssd_lite
 
+from vision.ssd.config import mobilenetv1_ssd_config
+
 
 # parse command line
 parser = argparse.ArgumentParser()
@@ -19,8 +21,7 @@ parser.add_argument('--net', default="ssd-mobilenet", help="The network architec
 parser.add_argument('--input', type=str, default='', help="path to input PyTorch model (.pth checkpoint)")
 parser.add_argument('--output', type=str, default='', help="desired path of converted ONNX model (default: <NET>.onnx)")
 parser.add_argument('--labels', type=str, default='labels.txt', help="name of the class labels file")
-parser.add_argument('--width', type=int, default=300, help="input width of the model to be exported (in pixels)")
-parser.add_argument('--height', type=int, default=300, help="input height of the model to be exported (in pixels)")
+parser.add_argument('--resolution', type=int, default=300, help="the NxN pixel resolution of the model (can be changed for mb1-ssd only)")
 parser.add_argument('--batch-size', type=int, default=1, help="batch size of the model to be exported (default=1)")
 parser.add_argument('--model-dir', type=str, default='', help="directory to look for the input PyTorch model in, and export the converted ONNX model to (if --output doesn't specify a directory)")
 
@@ -67,12 +68,14 @@ class_names = [name.strip() for name in open(args.labels).readlines()]
 num_classes = len(class_names)
 
 # construct the network architecture
-print(f"creating network:  {args.net}")
-print(f"num classes:       {num_classes}")
+print(f"=> creating network:  {args.net}")
+print(f"=> num classes:       {num_classes}")
+print(f"=> resolution:        {args.resolution}x{args.resolution}")
 
 if args.net == 'vgg16-ssd':
     net = create_vgg_ssd(len(class_names), is_test=True)
 elif args.net == 'mb1-ssd' or args.net == 'ssd-mobilenet':
+    mobilenetv1_ssd_config.set_image_size(args.resolution)
     net = create_mobilenetv1_ssd(len(class_names), is_test=True)
 elif args.net == 'mb1-ssd-lite':
     net = create_mobilenetv1_ssd_lite(len(class_names), is_test=True)
@@ -92,7 +95,7 @@ net.to(device)
 net.eval()
 
 # create example image data
-dummy_input = torch.randn(args.batch_size, 3, args.height, args.width).cuda()
+dummy_input = torch.randn(args.batch_size, 3, args.resolution, args.resolution).cuda()
 
 # format output model path
 if not args.output:
