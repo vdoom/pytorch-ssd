@@ -9,7 +9,7 @@ iou_threshold = 0.45
 center_variance = 0.1
 size_variance = 0.2
 
-specs = [
+specs_300 = [
     SSDSpec(19, 16, SSDBoxSizes(60, 105), [2, 3]),
     SSDSpec(10, 32, SSDBoxSizes(105, 150), [2, 3]),
     SSDSpec(5, 64, SSDBoxSizes(150, 195), [2, 3]),
@@ -18,10 +18,31 @@ specs = [
     SSDSpec(1, 300, SSDBoxSizes(285, 330), [2, 3])
 ]
 
+specs_512 = [
+    SSDSpec(32, 16, SSDBoxSizes(20, 35), [2, 3]),
+    SSDSpec(16, 32, SSDBoxSizes(35, 50), [2, 3]),
+    SSDSpec(8, 64, SSDBoxSizes(50, 65), [2, 3]),
+    SSDSpec(4, 100, SSDBoxSizes(195, 240), [2, 3]),
+    SSDSpec(2, 150, SSDBoxSizes(240, 285), [2, 3]),
+    SSDSpec(1, 300, SSDBoxSizes(285, 512), [2, 3])
+]
+
+specs_608 = [
+    SSDSpec(38, 16, SSDBoxSizes(45.6, 91.2), [2, 3]),
+    SSDSpec(19, 32, SSDBoxSizes(91.2, 200.64), [2, 3]),
+    SSDSpec(10, 61, SSDBoxSizes(200.64, 310.08), [2, 3]),
+    SSDSpec(5, 122, SSDBoxSizes(310.08, 419.52), [2, 3]),
+    SSDSpec(3, 203, SSDBoxSizes(419.52, 528.96), [2, 3]),
+    SSDSpec(2, 304, SSDBoxSizes(528.96, 638.4), [2, 3]),
+]
+
+
+specs = specs_300
+
 priors = generate_ssd_priors(specs, image_size)
 
 
-def set_image_size(size=300, min_ratio=20, max_ratio=90):
+def set_image_size(size=300, min_ratio=10, max_ratio=90):
     global image_size
     global specs
     global priors
@@ -31,6 +52,13 @@ def set_image_size(size=300, min_ratio=20, max_ratio=90):
     import torch
     import math
     import logging
+    
+    if size == 512:
+    	specs = specs_512
+    elif size == 608:
+    	specs = specs_608
+    else:
+    	specs = specs_300
         
     image_size = size
     ssd = create_mobilenetv1_ssd(num_classes=3) # TODO does num_classes matter here?
@@ -52,11 +80,13 @@ def set_image_size(size=300, min_ratio=20, max_ratio=90):
     
     # this update logic makes different boxes than the original for 300x300 (but better for power-of-two)
     # for backwards-compatibility, keep the default 300x300 config if that's what's being called for
-    if image_size != 300:
-        specs = []
-        
-        for i in range(len(feature_maps)):
-            specs.append( SSDSpec(feature_maps[i], steps[i], SSDBoxSizes(min_sizes[i], max_sizes[i]), [2, 3]) )   # ssd-mobilenet-* aspect ratio is [2,3]
+    #Some strange code
+    #TODO: maybe need uncoment and fix
+    #if image_size != 300:
+    #    specs = []
+    #    
+    #    for i in range(len(feature_maps)):
+    #        specs.append( SSDSpec(feature_maps[i], steps[i], SSDBoxSizes(min_sizes[i], max_sizes[i]), [2, 3]) )   # ssd-mobilenet-* aspect ratio is [2,3]
 
     logging.info(f'model resolution {image_size}x{image_size}')
     for spec in specs:
