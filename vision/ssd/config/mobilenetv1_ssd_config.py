@@ -80,13 +80,11 @@ def set_image_size(size=300, min_ratio=10, max_ratio=90):
     
     # this update logic makes different boxes than the original for 300x300 (but better for power-of-two)
     # for backwards-compatibility, keep the default 300x300 config if that's what's being called for
-    #Some strange code
-    #TODO: maybe need uncoment and fix
-    #if image_size != 300:
-    #    specs = []
-    #    
-    #    for i in range(len(feature_maps)):
-    #        specs.append( SSDSpec(feature_maps[i], steps[i], SSDBoxSizes(min_sizes[i], max_sizes[i]), [2, 3]) )   # ssd-mobilenet-* aspect ratio is [2,3]
+    if image_size != 300:
+        specs = []
+        
+        for i in range(len(feature_maps)):
+            specs.append( SSDSpec(feature_maps[i], steps[i], SSDBoxSizes(min_sizes[i], max_sizes[i]), [2, 3]) )   # ssd-mobilenet-* aspect ratio is [2,3]
 
     logging.info(f'model resolution {image_size}x{image_size}')
     for spec in specs:
