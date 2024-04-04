@@ -55,8 +55,11 @@ else:
     
 vs = cv2.VideoCapture(image_path)#.start()
 
-fourcc = cv2.VideoWriter_fourcc(*'MP4V')
-out = cv2.VideoWriter('output.mp4', fourcc, 20.0, (640, 480))
+fourcc = cv2.VideoWriter_fourcc(*'XVID')
+out = cv2.VideoWriter('output.avi', fourcc, 20.0, (1280, 720))
+
+#fourcc = cv2.VideoWriter_fourcc(*'MP4V')
+#out = cv2.VideoWriter('output.mp4', fourcc, 20.0, (640, 480))
 
 time.sleep(1.0)
 
@@ -64,21 +67,16 @@ while True:
     # grab the current frame, then handle if we are using a
     # VideoStream or VideoCapture object
     ret, frame  = vs.read()
-    #frame = frame[1] #if args.get("video", False) else frame
     # check to see if we have reached the end of the stream
     if frame is None:
         break
-    # resize the frame (so we can process it faster) and grab the
-    # frame dimensions
 
-    #orig_image = cv2.imread(image_path)
     image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     boxes, labels, probs = predictor.predict(image, 10, 0.4)
 
     for i in range(boxes.size(0)):
         box = boxes[i, :]
         print(box)
-        #cv2.rectangle(orig_image, (0, 0), (200, 200), (255, 255, 0), 4)
         cv2.rectangle(frame, (int(box[0]), int(box[1])), (int(box[2]), int(box[3])), (255, 255, 0), 4)
         #label = f"""{voc_dataset.class_names[labels[i]]}: {probs[i]:.2f}"""
         label = f"{class_names[labels[i]]}: {probs[i]:.2f}"
@@ -88,11 +86,11 @@ while True:
                     1,  # font scale
                     (255, 0, 255),
                     2)  # line type
-    path = "run_ssd_example_output.jpg"
-    cv2.imshow("Frame", frame)
+
     out.write(frame)
-    #cv2.imwrite(path, orig_image)
-    print(f"Found {len(probs)} objects. The output image is {path}")
+    cv2.imshow("Frame", frame)
+
+    print(f"Found {len(probs)} objects. The output video is output.mp4")
     if cv2.waitKey(1) == ord('q'):
         break
         
