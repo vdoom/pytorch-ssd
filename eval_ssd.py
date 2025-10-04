@@ -83,6 +83,13 @@ class MeanAPEvaluator:
         for class_index, class_name in enumerate(self.dataset.class_names):
             if class_index == 0:
                 continue
+            
+            # Check if this class has any ground truth annotations
+            if class_index not in self.true_case_stat:
+                logging.warning(f"Class '{class_name}' (index {class_index}) has no ground truth annotations in the test set. AP will be 0.0")
+                aps.append(0.0)
+                continue
+                
             prediction_path = self.eval_path / f"det_test_{class_name}.txt"
             ap = self.compute_average_precision_per_class(
                 self.true_case_stat[class_index],
